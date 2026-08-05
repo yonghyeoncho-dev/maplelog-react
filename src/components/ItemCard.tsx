@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { Item } from '../types/item';
 
 // [컴포넌트] = JSX를 리턴하는 함수. 원본 maplelog의 "아이템 1개 렌더 함수"와 같은 역할이다.
@@ -14,12 +15,14 @@ export default function ItemCard({ item }: { item: Item }) {
   ].filter((s) => s.value > 0);
 
   return (
-    <article className="item-card">
-      <header className="item-card__head">
+    // 카드 안에 링크를 따로 두지 않고 카드 전체를 Link로 만든다.
+    // 클릭 영역이 카드 전체가 되고, 키보드 Tab으로도 카드 단위로 이동된다.
+    <Link to={`/item/${item.id}`} className="item-card">
+      <div className="item-card__head">
         {/* JSX 안에서 값을 넣을 때는 중괄호 */}
         <h3 className="item-card__name">{item.name}</h3>
         <span className="item-card__job">{item.job}</span>
-      </header>
+      </div>
 
       <p className="item-card__meta">
         {item.category} · Lv.{item.reqLevel}
@@ -35,6 +38,6 @@ export default function ItemCard({ item }: { item: Item }) {
           </li>
         ))}
       </ul>
-    </article>
+    </Link>
   );
 }
