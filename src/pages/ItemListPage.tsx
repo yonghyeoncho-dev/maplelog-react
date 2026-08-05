@@ -1,46 +1,62 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useItems } from '../data/useItems';
 import type { Item } from '../types/item';
-import { items } from '../data/items';
 import SearchBar from '../components/SearchBar';
+import type { GroupFilter, JobFilter } from '../components/SearchBar';
 import ItemList from '../components/ItemList';
 
-type JobFilter = Item['job'] | '전체';
+// 2,600여 종을 한 번에 그리면 카드 하나당 DOM이 10개 남짓이라 3만 개가 쌓인다.
+// 검색어를 한 글자 칠 때마다 그걸 다시 그리면 입력이 눈에 띄게 밀린다.
+// 목록에서 실제로 보는 건 위쪽 몇십 개뿐이므로 상한을 두고 더 보기로 늘린다.
+const PAGE_SIZE = 60;
+
+// 컴포넌트 밖에 두는 이유: 안에서 []를 쓰면 렌더마다 새 배열이 만들어져
+// 참조가 매번 달라지고, 그걸 의존성으로 쓰는 useMemo가 매번 다시 계산된다.
+// (린트가 정확히 이걸 잡아줬다.)
+const EMPTY: Item[] = [];
 
 export default function ItemListPage() {
-  // [useSearchParams] useState와 쓰는 모양은 거의 같지만, 값이 컴포넌트가 아니라
-  // 주소창에 저장된다.
-  //
-  // 왜 useState가 아닌가:
-  // 상세 화면으로 이동하면 이 컴포넌트가 화면에서 사라지고(unmount), 그 안의
-  // useState 값도 같이 사라진다. 뒤로가기로 돌아오면 컴포넌트가 새로 만들어지므로
-  // 검색어가 초기값으로 리셋된다. 검색 조건은 "화면이 잠깐 들고 있을 값"이 아니라
-  // "이 화면이 무엇을 보여주는지를 규정하는 값"이므로 주소에 두는 것이 맞다.
-  // 부수 효과로 새로고침·링크 공유에서도 조건이 유지된다.
-  //
-  // 원본 maplelog에서는 location.search를 직접 파싱하고 history.pushState를 직접 불렀다.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const state = useItems();
 
+  // [useSearchParams] useState와 쓰는 모양은 같지만 값이 주소창에 저장된다.
+  // 상세로 가면 이 컴포넌트가 사라지면서 useState 값도 함께 사라지는데,
+  // 검색 조건은 "이 화면이 무엇을 보여주는지"를 규정하는 값이므로 주소에 두는 것이 맞다.
+  // 덕분에 뒤로가기·새로고침·링크 공유에서 조건이 유지된다.
+  const [searchParams, setSearchParams] = useSearchParams();
   const keyword = searchParams.get('keyword') ?? '';
+  const group = (searchParams.get('group') as GroupFilter) ?? '전체';
   const job = (searchParams.get('job') as JobFilter) ?? '전체';
 
-  // 값이 비어 있으면 파라미터 자체를 지운다 — 주소에 ?keyword=&job=전체 같은
-  // 의미 없는 꼬리가 남지 않게.
-  // replace: true는 검색 한 글자마다 히스토리가 쌓여서 뒤로가기를 수십 번
-  // 눌러야 하는 상황을 막는다.
-  const updateParam = (key: 'keyword' | 'job', value: string) => {
+  const [limit, setLimit] = useState(PAGE_SIZE);
+
+  // 조건이 바뀌면 다시 위에서부터 본다.
+  useEffect(() => { setLimit(PAGE_SIZE); }, [keyword, group, job]);
+
+  const updateParam = (key: 'keyword' | 'group' | 'job', value: string) => {
     const next = new URLSearchParams(searchParams);
+    // 빈 값·기본값이면 파라미터를 지운다 — 주소에 ?job=전체 같은 꼬리를 남기지 않기 위해.
     if (!value || value === '전체') next.delete(key);
     else next.set(key, value);
+    // replace를 쓰지 않으면 한 글자마다 히스토리가 쌓여 뒤로가기가 먹통이 된다.
     setSearchParams(next, { replace: true });
   };
 
-  // 필터 결과는 별도 상태로 두지 않는다 — keyword/job에서 항상 계산해 낼 수 있는 값이기 때문.
-  // 상태를 두 벌 관리하면 둘이 어긋나는 순간 버그가 된다.
-  const filtered = items.filter((item) => {
-    const matchKeyword = item.name.includes(keyword.trim());
-    const matchJob = job === '전체' || item.job === job;
-    return matchKeyword && matchJob;
-  });
+  const items = state.status === 'ready' ? state.items : EMPTY;
+
+  // 2,600건을 매 렌더마다 훑지 않도록 조건이 바뀔 때만 다시 계산한다.
+  const filtered = useMemo(() => {
+    const q = keyword.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchKeyword =
+        !q || item.name.toLowerCase().includes(q) || item.nameEn.toLowerCase().includes(q);
+      const matchGroup = group === '전체' || item.group === group;
+      const matchJob =
+        job === '전체' ||
+        (job === '공용' ? item.jobs.length === 0 : item.jobs.includes(job));
+      return matchKeyword && matchGroup && matchJob;
+    });
+  }, [items, keyword, group, job]);
 
   return (
     <>
@@ -52,17 +68,39 @@ export default function ItemListPage() {
         </p>
       </header>
 
-      {/* SearchBar는 Phase 1에서 제어 컴포넌트로 만들어 뒀기 때문에,
-          부모가 상태를 useState에 두든 URL에 두든 수정 없이 그대로 동작한다. */}
       <SearchBar
         keyword={keyword}
         onKeywordChange={(value) => updateParam('keyword', value)}
+        group={group}
+        onGroupChange={(value) => updateParam('group', value)}
         job={job}
         onJobChange={(value) => updateParam('job', value)}
       />
 
-      <p className="count">{filtered.length}개</p>
-      <ItemList items={filtered} />
+      {state.status === 'loading' && <p className="count">아이템 데이터를 불러오는 중…</p>}
+
+      {state.status === 'error' && (
+        <p className="empty">
+          아이템 데이터를 불러오지 못했습니다. ({state.message})
+        </p>
+      )}
+
+      {state.status === 'ready' && (
+        <>
+          <p className="count">
+            {filtered.length.toLocaleString()}개
+            {filtered.length > limit && ` 중 ${limit}개 표시`}
+          </p>
+
+          <ItemList items={filtered.slice(0, limit)} />
+
+          {filtered.length > limit && (
+            <button className="more" type="button" onClick={() => setLimit((n) => n + PAGE_SIZE)}>
+              더 보기
+            </button>
+          )}
+        </>
+      )}
     </>
   );
 }

@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# 전체 아이템 데이터 — 저장소에는 public/items.json(샘플)만 커밋한다.
+# 로컬·배포 환경에만 두고 .env.local 의 VITE_ITEMS_FILE 로 지정해 사용.
+public/items.full.json
+
+# 작업용 압축 파일이 루트에 남아 실수로 커밋되는 것을 막는다
+*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

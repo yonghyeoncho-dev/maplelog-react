@@ -1,43 +1,44 @@
 import { Link } from 'react-router-dom';
-import type { Item } from '../types/item';
+import type { Item, StatKey } from '../types/item';
+import { STAT_LABELS, STAT_ORDER } from '../types/item';
 
-// [컴포넌트] = JSX를 리턴하는 함수. 원본 maplelog의 "아이템 1개 렌더 함수"와 같은 역할이다.
-// 차이: 원본은 문자열을 만들어 innerHTML에 꽂았지만, 여기서는 JSX를 리턴하고 DOM 반영은 React가 한다.
-// [props] = 함수가 받는 인자. { item } 처럼 구조분해로 꺼내 쓴다.
+// 카드는 요약이다. 스탯이 14종까지 붙는 아이템이 있어 전부 보여주면 카드가 세로로 길어지고
+// 목록의 스캔 가능성이 떨어진다. 우선순위 순으로 4개까지만 노출하고 나머지는 개수로 알린다.
+const MAX_STATS = 4;
+
 export default function ItemCard({ item }: { item: Item }) {
-  // 0인 스탯은 표시하지 않는다 — 원본에서도 빈 스탯 줄이 카드를 지저분하게 만들었다.
-  const stats = [
-    { label: 'STR', value: item.str },
-    { label: 'DEX', value: item.dex },
-    { label: 'INT', value: item.int },
-    { label: 'LUK', value: item.luk },
-    { label: '공격력', value: item.attack },
-  ].filter((s) => s.value > 0);
+  const entries = STAT_ORDER
+    .filter((key): key is StatKey => Boolean(item.stats?.[key]))
+    .map((key) => ({ key, label: STAT_LABELS[key], value: item.stats![key]! }));
+
+  const shown = entries.slice(0, MAX_STATS);
+  const rest = entries.length - shown.length;
 
   return (
-    // 카드 안에 링크를 따로 두지 않고 카드 전체를 Link로 만든다.
-    // 클릭 영역이 카드 전체가 되고, 키보드 Tab으로도 카드 단위로 이동된다.
-    <Link to={`/item/${item.id}`} className="item-card">
+    // 카드 전체가 하나의 링크다. 클릭 영역이 카드 전체가 되고 Tab 이동도 카드 단위가 된다.
+    <Link to={`/item/${item.code}`} className="item-card">
       <div className="item-card__head">
-        {/* JSX 안에서 값을 넣을 때는 중괄호 */}
         <h3 className="item-card__name">{item.name}</h3>
-        <span className="item-card__job">{item.job}</span>
+        <span className="item-card__job">
+          {item.jobs.length === 0 ? '공용' : item.jobs.join('·')}
+        </span>
       </div>
 
       <p className="item-card__meta">
-        {item.category} · Lv.{item.reqLevel}
+        {item.type} · Lv.{item.reqLevel}
       </p>
 
-      <ul className="item-card__stats">
-        {/* [리스트 렌더링] 배열 → JSX 배열. key는 React가 각 항목을 구분하는 식별자다.
-            key가 없으면 목록이 바뀔 때 React가 어떤 항목이 그대로인지 몰라 전부 다시 그린다. */}
-        {stats.map((s) => (
-          <li key={s.label}>
-            <span>{s.label}</span>
-            <b>+{s.value}</b>
-          </li>
-        ))}
-      </ul>
+      {entries.length > 0 && (
+        <ul className="item-card__stats">
+          {shown.map((s) => (
+            <li key={s.key}>
+              <span>{s.label}</span>
+              <b>+{s.value}</b>
+            </li>
+          ))}
+          {rest > 0 && <li className="item-card__more">외 {rest}개 옵션</li>}
+        </ul>
+      )}
     </Link>
   );
 }
