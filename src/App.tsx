@@ -1,45 +1,21 @@
-import { useState } from 'react';
-import type { Item } from './types/item';
-import itemsData from './data/items.json';
-import SearchBar from './components/SearchBar';
-import ItemList from './components/ItemList';
+import { Routes, Route } from 'react-router-dom';
+import ItemListPage from './pages/ItemListPage';
+import ItemDetailPage from './pages/ItemDetailPage';
+import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
 
-const items = itemsData as Item[];
-
+// [라우팅] 원본 maplelog에서는 location.hash를 읽어 직접 화면을 갈아끼웠다.
+// 여기서는 "어떤 주소일 때 어떤 컴포넌트를 그릴지"를 선언만 하고, 매칭은 Router가 한다.
+// App은 이제 화면을 그리지 않고 "주소 → 화면" 지도 역할만 한다.
+// 경로가 늘어나도 분기문이 길어지는 대신 Route 한 줄이 늘어난다.
 export default function App() {
-  // [useState] 원본에서 직접 관리하던 "상태 객체 + 화면 갱신 호출"을 대신한다.
-  // setKeyword를 부르면 React가 App을 다시 실행하고, 아래 filtered가 새로 계산되어 화면이 갱신된다.
-  const [keyword, setKeyword] = useState('');
-  const [job, setJob] = useState<Item['job'] | '전체'>('전체');
-
-  // 필터 결과는 별도 상태로 두지 않는다 — keyword/job에서 항상 계산해 낼 수 있는 값이기 때문.
-  // 상태를 두 벌 관리하면 둘이 어긋나는 순간 버그가 된다. (원본에서 겪은 문제)
-  const filtered = items.filter((item) => {
-    const matchKeyword = item.name.includes(keyword.trim());
-    const matchJob = job === '전체' || item.job === job;
-    return matchKeyword && matchJob;
-  });
-
   return (
-    <main className="app">
-      <header className="app__head">
-        <h1>아이템 DB</h1>
-        <p>
-          <a href="https://maplelog.gg" target="_blank" rel="noreferrer">maplelog.gg</a>
-          의 아이템 조회 화면을 React + TypeScript로 리빌드하는 중입니다.
-        </p>
-      </header>
-
-      <SearchBar
-        keyword={keyword}
-        onKeywordChange={setKeyword}
-        job={job}
-        onJobChange={setJob}
-      />
-
-      <p className="count">{filtered.length}개</p>
-      <ItemList items={filtered} />
-    </main>
+    <div className="app">
+      <Routes>
+        <Route path="/" element={<ItemListPage />} />
+        <Route path="/item/:id" element={<ItemDetailPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </div>
   );
 }
