@@ -32,6 +32,11 @@ function loadItems(): Promise<Item[]> {
         return res.json() as Promise<Item[]>;
       })
       .then((data) => {
+        // 목록의 첫 화면이 무엇으로 시작하는지가 곧 첫인상이다.
+        // 원본 순서대로 두면 스탯이 없는 세트장비가 앞에 몰려 빈 카드가 먼저 보인다.
+        // 저레벨부터 올라가는 순서가 게임에서 아이템을 만나는 순서와도 맞다.
+        // 정렬은 받아온 직후 한 번만 하고 캐시에 담는다 — 렌더마다 2,600건을 다시 정렬할 이유가 없다.
+        data.sort((a, b) => a.reqLevel - b.reqLevel || a.name.localeCompare(b.name, 'ko'));
         cache = data;
         return data;
       })
