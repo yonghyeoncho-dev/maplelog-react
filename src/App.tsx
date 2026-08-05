@@ -1,30 +1,45 @@
-import './App.css'
+import { useState } from 'react';
+import type { Item } from './types/item';
+import itemsData from './data/items.json';
+import SearchBar from './components/SearchBar';
+import ItemList from './components/ItemList';
+import './App.css';
 
-const roadmap = [
-  { done: true, label: 'Vite + React + TypeScript 프로젝트 셋업' },
-  { done: false, label: '아이템 DB 조회 화면 리빌드 (검색 · 상세)' },
-  { done: false, label: '강화 시뮬레이터 컴포넌트 분리 설계' },
-  { done: false, label: '상태 관리 도입 및 데이터 페칭 구조화' },
-  { done: false, label: '독립 URL 배포 (Firebase Hosting)' },
-]
+const items = itemsData as Item[];
 
-function App() {
+export default function App() {
+  // [useState] 원본에서 직접 관리하던 "상태 객체 + 화면 갱신 호출"을 대신한다.
+  // setKeyword를 부르면 React가 App을 다시 실행하고, 아래 filtered가 새로 계산되어 화면이 갱신된다.
+  const [keyword, setKeyword] = useState('');
+  const [job, setJob] = useState<Item['job'] | '전체'>('전체');
+
+  // 필터 결과는 별도 상태로 두지 않는다 — keyword/job에서 항상 계산해 낼 수 있는 값이기 때문.
+  // 상태를 두 벌 관리하면 둘이 어긋나는 순간 버그가 된다. (원본에서 겪은 문제)
+  const filtered = items.filter((item) => {
+    const matchKeyword = item.name.includes(keyword.trim());
+    const matchJob = job === '전체' || item.job === job;
+    return matchKeyword && matchJob;
+  });
+
   return (
-    <main style={{ maxWidth: 640, margin: '0 auto', padding: '48px 24px', fontFamily: 'sans-serif' }}>
-      <h1>maplelog-react</h1>
-      <p>
-        실운영 중인 메이플스토리 팬 서비스{' '}
-        <a href="https://maplelog.gg" target="_blank" rel="noreferrer">maplelog.gg</a>
-        를 React + TypeScript로 리빌드하는 프로젝트입니다.
-      </p>
-      <h2>로드맵</h2>
-      <ul style={{ lineHeight: 1.9, listStyle: 'none', padding: 0 }}>
-        {roadmap.map((item) => (
-          <li key={item.label}>{item.done ? '✅' : '⬜'} {item.label}</li>
-        ))}
-      </ul>
-    </main>
-  )
-}
+    <main className="app">
+      <header className="app__head">
+        <h1>아이템 DB</h1>
+        <p>
+          <a href="https://maplelog.gg" target="_blank" rel="noreferrer">maplelog.gg</a>
+          의 아이템 조회 화면을 React + TypeScript로 리빌드하는 중입니다.
+        </p>
+      </header>
 
-export default App
+      <SearchBar
+        keyword={keyword}
+        onKeywordChange={setKeyword}
+        job={job}
+        onJobChange={setJob}
+      />
+
+      <p className="count">{filtered.length}개</p>
+      <ItemList items={filtered} />
+    </main>
+  );
+}
